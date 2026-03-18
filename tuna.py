@@ -1,9 +1,46 @@
 import argparse
 from prompt_toolkit import prompt
 from prompt_toolkit.history import InMemoryHistory
+from prompt_toolkit.completion import WordCompleter
 from feetech_tuna import FeetechTuna
 
 from servotemplates import servoTemplates
+
+# Command definitions: name -> (requires_servo, usage, description)
+commands = {
+    "help": (False, "help", "Show available commands"),
+    "list": (False, "list", "Scan and list all connected servos"),
+    "select": (False, "select <servo_id>", "Select a servo by ID"),
+    "deselect": (True, "deselect", "Deselect the current servo"),
+    "listregs": (True, "listregs", "List all registers for the selected servo"),
+    "readreg": (True, "readreg <addr>", "Read a register by address"),
+    "writereg": (True, "writereg <addr> <value>", "Write a value to a register"),
+    "setpos": (True, "setpos <position|min|max>", "Move servo to a position"),
+    "unlockeeprom": (True, "unlockeeprom", "Unlock the EEPROM for writing"),
+    "lockeeprom": (True, "lockeeprom", "Lock the EEPROM"),
+    "loadtemplate": (True, "loadtemplate <template_id>", "Load a servo template by ID"),
+    "exit": (False, "exit", "Exit the shell"),
+    "quit": (False, "quit", "Exit the shell"),
+}
+
+
+def get_completer(servo_selected):
+    words = [
+        name
+        for name, (requires_servo, _, _) in commands.items()
+        if not requires_servo or servo_selected
+    ]
+    return WordCompleter(words, ignore_case=True, sentence=True)
+
+
+def show_help(servo_selected):
+    print("Available commands:")
+    for name, (requires_servo, usage, description) in commands.items():
+        if name == "quit":
+            continue
+        if requires_servo and not servo_selected:
+            continue
+        print(f"  {usage:<30} {description}")
 
 
 # Command line arts for port and baudrate
@@ -42,10 +79,12 @@ while True:
     else :
         pmsg = "(Servo " + str(selectedServo) + ") >> "
 
-    command = prompt(pmsg, history=history)
+    command = prompt(pmsg, history=history, completer=get_completer(selectedServo))
 
     if command == "exit" or command == "quit":
         break
+    elif command == "help":
+        show_help(selectedServo)
     elif command == "list":
         list = tuna.listServos()
         print("Found " + str(len(list)) + " servos")
